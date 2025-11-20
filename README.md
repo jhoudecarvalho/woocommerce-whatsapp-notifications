@@ -68,6 +68,8 @@ Na aba "Mensagens", personalize as mensagens para cada status usando os seguinte
 - `{order_date}` - Data do pedido
 - `{products_list}` - Lista de produtos
 - `{status}` - Status do pedido em português
+- `{shipping_method}` - Método de entrega (ex: "Correios - PAC", "Transportadora XYZ")
+- `{shipping_total}` - Valor do frete/entrega (exibe "Grátis" se não houver custo)
 - `{tracking_code}` - Código de rastreio (apenas para mensagens de rastreio)
 - `{tracking_url}` - URL de rastreio (apenas para mensagens de rastreio)
 - `{shipping_company}` - Nome da transportadora (apenas para mensagens de rastreio)

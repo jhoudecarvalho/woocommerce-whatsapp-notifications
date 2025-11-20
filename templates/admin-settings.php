@@ -145,7 +145,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 				<h2><?php esc_html_e( 'Templates de Mensagem', 'wc-whatsapp-notifications' ); ?></h2>
 				<p class="description">
 					<?php esc_html_e( 'Personalize as mensagens enviadas para cada status. Use os placeholders disponíveis:', 'wc-whatsapp-notifications' ); ?>
-					<code>{customer_name}</code>, <code>{order_number}</code>, <code>{order_total}</code>, <code>{order_date}</code>, <code>{products_list}</code>, <code>{status}</code>
+					<code>{customer_name}</code>, <code>{order_number}</code>, <code>{order_total}</code>, <code>{order_date}</code>, <code>{products_list}</code>, <code>{status}</code>, <code>{shipping_method}</code>, <code>{shipping_total}</code>
 				</p>
 
 				<?php foreach ( $statuses as $status_key => $status_label ) : ?>
@@ -184,7 +184,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 								placeholder="<?php esc_attr_e( 'Seu pedido {order_number} foi enviado! Código de rastreio: {tracking_code}. Acompanhe aqui: {tracking_url}', 'wc-whatsapp-notifications' ); ?>"
 							><?php echo esc_textarea( get_option( 'wc_whatsapp_message_tracking', '' ) ); ?></textarea>
 							<p class="description">
-								<?php esc_html_e( 'Use placeholders: {customer_name}, {order_number}, {order_total}, {order_date}, {products_list}, {tracking_code}, {tracking_url}, {shipping_company}.', 'wc-whatsapp-notifications' ); ?>
+								<?php esc_html_e( 'Use placeholders: {customer_name}, {order_number}, {order_total}, {order_date}, {products_list}, {tracking_code}, {tracking_url}, {shipping_company}, {shipping_method}, {shipping_total}.', 'wc-whatsapp-notifications' ); ?>
 							</p>
 						</td>
 					</tr>
@@ -202,7 +202,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 								placeholder="<?php esc_attr_e( 'Olá {customer_name}! Nova observação sobre seu pedido #{order_number}: {note_content}', 'wc-whatsapp-notifications' ); ?>"
 							><?php echo esc_textarea( get_option( 'wc_whatsapp_message_customer_note', '' ) ); ?></textarea>
 							<p class="description">
-								<?php esc_html_e( 'Use placeholders: {customer_name}, {order_number}, {order_total}, {order_date}, {note_content}.', 'wc-whatsapp-notifications' ); ?>
+								<?php esc_html_e( 'Use placeholders: {customer_name}, {order_number}, {order_total}, {order_date}, {note_content}, {shipping_method}, {shipping_total}.', 'wc-whatsapp-notifications' ); ?>
 							</p>
 						</td>
 					</tr>

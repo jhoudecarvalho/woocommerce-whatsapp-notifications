@@ -405,6 +405,10 @@ class WC_WhatsApp_Handler {
 		// Status em português
 		$status_label = $this->get_status_label( $status );
 
+		// Informações de entrega
+		$shipping_method = $this->get_shipping_method( $order );
+		$shipping_total  = $this->get_shipping_total( $order );
+
 		// Substitui placeholders
 		$message = str_replace(
 			array(
@@ -414,6 +418,8 @@ class WC_WhatsApp_Handler {
 				'{order_date}',
 				'{products_list}',
 				'{status}',
+				'{shipping_method}',
+				'{shipping_total}',
 			),
 			array(
 				$customer_name,
@@ -422,6 +428,8 @@ class WC_WhatsApp_Handler {
 				$order_date,
 				$products_list,
 				$status_label,
+				$shipping_method,
+				$shipping_total,
 			),
 			$template
 		);
@@ -447,11 +455,11 @@ class WC_WhatsApp_Handler {
 	 */
 	private function get_default_template( $status ) {
 		$templates = array(
-			'processing' => "Olá *{customer_name}*! 👋\n\nSeu pedido *#{order_number}* está sendo processado!\n\n📦 *Produtos:*\n{products_list}\n\n💰 *Total:* {order_total}\n\n📅 *Data:* {order_date}\n\nEm breve você receberá mais atualizações!",
-			'on-hold'    => "Olá *{customer_name}*! 👋\n\nSeu pedido *#{order_number}* está aguardando pagamento.\n\n📦 *Produtos:*\n{products_list}\n\n💰 *Total:* {order_total}\n\n📅 *Data:* {order_date}\n\nAssim que o pagamento for confirmado, processaremos seu pedido!",
-			'completed'  => "Olá *{customer_name}*! 🎉\n\nSeu pedido *#{order_number}* foi concluído!\n\n📦 *Produtos:*\n{products_list}\n\n💰 *Total:* {order_total}\n\n📅 *Data:* {order_date}\n\nObrigado pela sua compra!",
-			'cancelled'  => "Olá *{customer_name}*,\n\nInfelizmente seu pedido *#{order_number}* foi cancelado.\n\n📦 *Produtos:*\n{products_list}\n\n💰 *Total:* {order_total}\n\n📅 *Data:* {order_date}\n\nSe tiver dúvidas, entre em contato conosco.",
-			'refunded'   => "Olá *{customer_name}*,\n\nSeu pedido *#{order_number}* foi reembolsado.\n\n📦 *Produtos:*\n{products_list}\n\n💰 *Total:* {order_total}\n\n📅 *Data:* {order_date}\n\nO valor será estornado conforme método de pagamento utilizado.",
+			'processing' => "Olá *{customer_name}*! 👋\n\nSeu pedido *#{order_number}* está sendo processado!\n\n📦 *Produtos:*\n{products_list}\n\n🚚 *Entrega:* {shipping_method}\n💵 *Frete:* {shipping_total}\n\n💰 *Total:* {order_total}\n\n📅 *Data:* {order_date}\n\nEm breve você receberá mais atualizações!",
+			'on-hold'    => "Olá *{customer_name}*! 👋\n\nSeu pedido *#{order_number}* está aguardando pagamento.\n\n📦 *Produtos:*\n{products_list}\n\n🚚 *Entrega:* {shipping_method}\n💵 *Frete:* {shipping_total}\n\n💰 *Total:* {order_total}\n\n📅 *Data:* {order_date}\n\nAssim que o pagamento for confirmado, processaremos seu pedido!",
+			'completed'  => "Olá *{customer_name}*! 🎉\n\nSeu pedido *#{order_number}* foi concluído!\n\n📦 *Produtos:*\n{products_list}\n\n🚚 *Entrega:* {shipping_method}\n💵 *Frete:* {shipping_total}\n\n💰 *Total:* {order_total}\n\n📅 *Data:* {order_date}\n\nObrigado pela sua compra!",
+			'cancelled'  => "Olá *{customer_name}*,\n\nInfelizmente seu pedido *#{order_number}* foi cancelado.\n\n📦 *Produtos:*\n{products_list}\n\n🚚 *Entrega:* {shipping_method}\n💵 *Frete:* {shipping_total}\n\n💰 *Total:* {order_total}\n\n📅 *Data:* {order_date}\n\nSe tiver dúvidas, entre em contato conosco.",
+			'refunded'   => "Olá *{customer_name}*,\n\nSeu pedido *#{order_number}* foi reembolsado.\n\n📦 *Produtos:*\n{products_list}\n\n🚚 *Entrega:* {shipping_method}\n💵 *Frete:* {shipping_total}\n\n💰 *Total:* {order_total}\n\n📅 *Data:* {order_date}\n\nO valor será estornado conforme método de pagamento utilizado.",
 		);
 
 		return isset( $templates[ $status ] ) ? $templates[ $status ] : '';
@@ -477,6 +485,52 @@ class WC_WhatsApp_Handler {
 		}
 
 		return implode( "\n", $list );
+	}
+
+	/**
+	 * Obtém método de entrega do pedido
+	 *
+	 * @param WC_Order $order Pedido.
+	 * @return string Método de entrega formatado.
+	 */
+	private function get_shipping_method( $order ) {
+		$shipping_methods = $order->get_shipping_methods();
+		
+		if ( empty( $shipping_methods ) ) {
+			return 'Não informado';
+		}
+		
+		$methods = array();
+		foreach ( $shipping_methods as $shipping_method ) {
+			$method_title = $shipping_method->get_method_title();
+			$method_name  = $shipping_method->get_name();
+			
+			// Se method_title estiver vazio, usa o name
+			if ( empty( $method_title ) ) {
+				$methods[] = $method_name;
+			} else {
+				$methods[] = $method_title;
+			}
+		}
+		
+		return implode( ', ', $methods );
+	}
+
+	/**
+	 * Obtém valor total do frete/entrega
+	 *
+	 * @param WC_Order $order Pedido.
+	 * @return string Valor do frete formatado.
+	 */
+	private function get_shipping_total( $order ) {
+		$shipping_total = $order->get_shipping_total();
+		
+		if ( empty( $shipping_total ) || 0 == $shipping_total ) {
+			return 'Grátis';
+		}
+		
+		// Converte HTML para texto simples (WhatsApp não suporta HTML)
+		return html_entity_decode( strip_tags( wc_price( $shipping_total, array( 'currency' => $order->get_currency() ) ) ), ENT_QUOTES, 'UTF-8' );
 	}
 
 	/**
@@ -861,6 +915,10 @@ class WC_WhatsApp_Handler {
 		$order_date    = wc_format_datetime( $order->get_date_created(), 'd/m/Y' );
 		$products_list = $this->get_products_list( $order );
 		
+		// Informações de entrega
+		$shipping_method = $this->get_shipping_method( $order );
+		$shipping_total  = $this->get_shipping_total( $order );
+		
 		// Obtém URL de rastreio e nome da transportadora
 		$tracking_url = '';
 		$shipping_company_name = '';
@@ -903,6 +961,8 @@ class WC_WhatsApp_Handler {
 				'{tracking_code}',
 				'{tracking_url}',
 				'{shipping_company}',
+				'{shipping_method}',
+				'{shipping_total}',
 				'{products_list}',
 				'{order_total}',
 				'{order_date}',
@@ -913,6 +973,8 @@ class WC_WhatsApp_Handler {
 				$tracking_code,
 				$tracking_url,
 				$shipping_company_name,
+				$shipping_method,
+				$shipping_total,
 				$products_list,
 				$order_total,
 				$order_date,
@@ -1018,6 +1080,10 @@ class WC_WhatsApp_Handler {
 		$order_total   = html_entity_decode( strip_tags( wc_price( $order->get_total(), array( 'currency' => $order->get_currency() ) ) ), ENT_QUOTES, 'UTF-8' );
 		$order_date    = wc_format_datetime( $order->get_date_created(), 'd/m/Y' );
 		
+		// Informações de entrega
+		$shipping_method = $this->get_shipping_method( $order );
+		$shipping_total  = $this->get_shipping_total( $order );
+		
 		// Remove tags HTML da observação e converte entidades
 		$note_content_clean = html_entity_decode( strip_tags( $note_content ), ENT_QUOTES, 'UTF-8' );
 		
@@ -1027,6 +1093,8 @@ class WC_WhatsApp_Handler {
 				'{customer_name}',
 				'{order_number}',
 				'{note_content}',
+				'{shipping_method}',
+				'{shipping_total}',
 				'{order_total}',
 				'{order_date}',
 			),
@@ -1034,6 +1102,8 @@ class WC_WhatsApp_Handler {
 				$customer_name,
 				$order_number,
 				$note_content_clean,
+				$shipping_method,
+				$shipping_total,
 				$order_total,
 				$order_date,
 			),
