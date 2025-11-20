@@ -1,0 +1,74 @@
+/**
+ * Estilos do painel administrativo
+ */
+
+.wc-whatsapp-settings {
+	max-width: 1200px;
+}
+
+.wc-whatsapp-tabs {
+	margin-top: 20px;
+}
+
+.wc-whatsapp-tabs .nav-tab-wrapper {
+	margin-bottom: 20px;
+	border-bottom: 1px solid #ccc;
+}
+
+.wc-whatsapp-tabs .tab-content {
+	display: none;
+	padding: 20px 0;
+}
+
+.wc-whatsapp-tabs .tab-content.active {
+	display: block;
+}
+
+.wc-whatsapp-tabs .tab-content h2 {
+	margin-top: 0;
+	padding-top: 0;
+}
+
+.wc-whatsapp-tabs .tab-content h3 {
+	margin-top: 30px;
+	margin-bottom: 10px;
+}
+
+.test-result {
+	margin-left: 10px;
+	font-weight: 600;
+}
+
+.test-result.success {
+	color: #46b450;
+}
+
+.test-result.error {
+	color: #dc3232;
+}
+
+.test-result.loading {
+	color: #0073aa;
+}
+
+.form-table textarea.code {
+	font-family: 'Courier New', monospace;
+	font-size: 13px;
+}
+
+.form-table th {
+	width: 200px;
+}
+
+.wc-whatsapp-settings .description {
+	font-style: italic;
+	color: #666;
+}
+
+.wc-whatsapp-settings code {
+	background: #f0f0f1;
+	padding: 2px 6px;
+	border-radius: 3px;
+	font-size: 12px;
+}
+
