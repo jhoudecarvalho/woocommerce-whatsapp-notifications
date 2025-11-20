@@ -3,7 +3,7 @@
  * Plugin Name: WooCommerce WhatsApp Notifications
  * Plugin URI: https://cdwtech.com.br
  * Description: Envia notificações automáticas via WhatsApp quando pedidos WooCommerce mudam de status
- * Version: 1.0.0
+ * Version: 1.1.0
  * Author: Jhou de Carvalho
  * Author URI: https://cdwtech.com.br
  * Text Domain: wc-whatsapp-notifications
@@ -22,7 +22,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Define constantes do plugin
-define( 'WC_WHATSAPP_VERSION', '1.0.0' );
+define( 'WC_WHATSAPP_VERSION', '1.1.0' );
 define( 'WC_WHATSAPP_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WC_WHATSAPP_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'WC_WHATSAPP_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );

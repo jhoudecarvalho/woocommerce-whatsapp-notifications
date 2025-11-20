@@ -175,6 +175,11 @@ Para suporte, entre em contato através do site: https://cdwtech.com.br ou email
 
 ## Changelog
 
+### 1.1.0
+- Adiciona campos de entrega nas mensagens (`{shipping_method}` e `{shipping_total}`)
+- Melhora templates padrão com informações de entrega
+- Atualiza documentação com novos placeholders
+
 ### 1.0.0
 - Versão inicial
 - Integração com API WhatsApp
