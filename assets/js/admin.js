@@ -26,13 +26,13 @@
 			var $result = $('#test-api-result');
 			
 			$btn.prop('disabled', true);
-			$result.removeClass('success error').addClass('loading').text(wcWhatsApp.strings.testing);
+			$result.removeClass('success error').addClass('loading show').text(wcWhatsApp.strings.testing);
 			
 			var apiUrl = $('#wc_whatsapp_api_url').val();
 			var apiToken = $('#wc_whatsapp_api_token').val();
 			
 			if (!apiUrl || !apiToken) {
-				$result.removeClass('loading').addClass('error').text('Preencha a URL e o Token primeiro.');
+				$result.removeClass('loading').addClass('error show').text('Preencha a URL e o Token primeiro.');
 				$btn.prop('disabled', false);
 				return;
 			}
@@ -50,16 +50,16 @@
 					$btn.prop('disabled', false);
 					
 					if (response.success) {
-						$result.removeClass('loading error').addClass('success')
+						$result.removeClass('loading error').addClass('success show')
 							.text(wcWhatsApp.strings.success + ' - ' + response.data.message);
 					} else {
-						$result.removeClass('loading success').addClass('error')
+						$result.removeClass('loading success').addClass('error show')
 							.text(wcWhatsApp.strings.error + ' - ' + response.data.message);
 					}
 				},
 				error: function() {
 					$btn.prop('disabled', false);
-					$result.removeClass('loading success').addClass('error')
+					$result.removeClass('loading success').addClass('error show')
 						.text(wcWhatsApp.strings.error + ' - Erro na requisição');
 				}
 			});
@@ -73,17 +73,17 @@
 			var message = $('#test-message').val();
 			
 			if (!phone) {
-				$result.removeClass('success').addClass('error').text(wcWhatsApp.strings.invalid_phone);
+				$result.removeClass('success').addClass('error show').text(wcWhatsApp.strings.invalid_phone);
 				return;
 			}
 			
 			if (!message) {
-				$result.removeClass('success').addClass('error').text(wcWhatsApp.strings.empty_message);
+				$result.removeClass('success').addClass('error show').text(wcWhatsApp.strings.empty_message);
 				return;
 			}
 			
 			$btn.prop('disabled', true);
-			$result.removeClass('success error').addClass('loading').text(wcWhatsApp.strings.sending);
+			$result.removeClass('success error').addClass('loading show').text(wcWhatsApp.strings.sending);
 			
 			$.ajax({
 				url: wcWhatsApp.ajaxUrl,
@@ -98,17 +98,17 @@
 					$btn.prop('disabled', false);
 					
 					if (response.success) {
-						$result.removeClass('loading error').addClass('success')
+						$result.removeClass('loading error').addClass('success show')
 							.text(wcWhatsApp.strings.sent);
 						$('#test-message').val('');
 					} else {
-						$result.removeClass('loading success').addClass('error')
+						$result.removeClass('loading success').addClass('error show')
 							.text(wcWhatsApp.strings.error + ' - ' + response.data.message);
 					}
 				},
 				error: function() {
 					$btn.prop('disabled', false);
-					$result.removeClass('loading success').addClass('error')
+					$result.removeClass('loading success').addClass('error show')
 						.text(wcWhatsApp.strings.error + ' - Erro na requisição');
 				}
 			});

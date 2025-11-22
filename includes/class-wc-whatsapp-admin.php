@@ -60,6 +60,9 @@ class WC_WhatsApp_Admin {
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_scripts' ) );
 
+		// Handlers AJAX para testes
+		add_action( 'wp_ajax_wc_whatsapp_test_api', array( $this, 'ajax_test_api' ) );
+		add_action( 'wp_ajax_wc_whatsapp_send_test_message', array( $this, 'ajax_send_test_message' ) );
 	}
 
 	/**
@@ -346,6 +349,139 @@ class WC_WhatsApp_Admin {
 		}
 
 		return false;
+	}
+
+	/**
+	 * Handler AJAX para testar conexão com API
+	 */
+	public function ajax_test_api() {
+		check_ajax_referer( 'wc_whatsapp_admin', 'nonce' );
+
+		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+			wp_send_json_error( array( 'message' => __( 'Sem permissão.', 'wc-whatsapp-notifications' ) ) );
+		}
+
+		$api_url   = isset( $_POST['api_url'] ) ? sanitize_text_field( $_POST['api_url'] ) : '';
+		$api_token = isset( $_POST['api_token'] ) ? sanitize_text_field( $_POST['api_token'] ) : '';
+
+		if ( empty( $api_url ) || empty( $api_token ) ) {
+			wp_send_json_error( array( 'message' => __( 'URL e Token são obrigatórios.', 'wc-whatsapp-notifications' ) ) );
+		}
+
+		// Testa a conexão usando a API
+		$test_result = $this->test_api_connection( $api_url, $api_token );
+
+		if ( is_wp_error( $test_result ) ) {
+			wp_send_json_error( array( 'message' => $test_result->get_error_message() ) );
+		}
+
+		wp_send_json_success( array( 'message' => __( 'Conexão com API estabelecida com sucesso!', 'wc-whatsapp-notifications' ) ) );
+	}
+
+	/**
+	 * Handler AJAX para enviar mensagem de teste
+	 */
+	public function ajax_send_test_message() {
+		check_ajax_referer( 'wc_whatsapp_admin', 'nonce' );
+
+		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+			wp_send_json_error( array( 'message' => __( 'Sem permissão.', 'wc-whatsapp-notifications' ) ) );
+		}
+
+		$phone   = isset( $_POST['phone'] ) ? sanitize_text_field( $_POST['phone'] ) : '';
+		$message = isset( $_POST['message'] ) ? sanitize_textarea_field( $_POST['message'] ) : '';
+
+		if ( empty( $phone ) ) {
+			wp_send_json_error( array( 'message' => __( 'Telefone é obrigatório.', 'wc-whatsapp-notifications' ) ) );
+		}
+
+		if ( empty( $message ) ) {
+			wp_send_json_error( array( 'message' => __( 'Mensagem é obrigatória.', 'wc-whatsapp-notifications' ) ) );
+		}
+
+		// Formata telefone
+		$formatted_phone = $this->format_phone( $phone );
+
+		if ( ! $formatted_phone ) {
+			wp_send_json_error( array( 'message' => __( 'Telefone inválido. Use o formato: (44) 99999-9999', 'wc-whatsapp-notifications' ) ) );
+		}
+
+		// Envia mensagem de teste (bypass rate limit)
+		$result = $this->api->send_message( $formatted_phone, $message, null, null, true );
+
+		if ( is_wp_error( $result ) ) {
+			wp_send_json_error( array( 'message' => $result->get_error_message() ) );
+		}
+
+		wp_send_json_success( array( 'message' => __( 'Mensagem de teste enviada com sucesso!', 'wc-whatsapp-notifications' ) ) );
+	}
+
+	/**
+	 * Testa conexão com API
+	 *
+	 * @param string $api_url URL da API.
+	 * @param string $api_token Token da API.
+	 * @return bool|WP_Error True se conectou, WP_Error em caso de erro.
+	 */
+	private function test_api_connection( $api_url, $api_token ) {
+		// Tenta descobrir o endpoint correto
+		$endpoints = array( '/message', '/send', '/send-message', '/messages' );
+
+		foreach ( $endpoints as $endpoint ) {
+			$test_url = rtrim( $api_url, '/' ) . $endpoint;
+
+			$response = wp_remote_post(
+				$test_url,
+				array(
+					'headers' => array(
+						'Authorization' => 'Bearer ' . $api_token,
+						'Content-Type'  => 'application/json',
+					),
+					'body'    => wp_json_encode(
+						array(
+							'number'  => '5511999999999', // Número de teste
+							'message' => 'Teste de conexão',
+						)
+					),
+					'timeout' => 10,
+				)
+			);
+
+			if ( ! is_wp_error( $response ) ) {
+				$status_code = wp_remote_retrieve_response_code( $response );
+				// Se retornou 200, 201 ou 400 (bad request mas API respondeu), a conexão está OK
+				if ( in_array( $status_code, array( 200, 201, 400 ), true ) ) {
+					return true;
+				}
+			}
+		}
+
+		// Se nenhum endpoint funcionou, tenta a URL diretamente (caso seja endpoint completo)
+		$response = wp_remote_post(
+			$api_url,
+			array(
+				'headers' => array(
+					'Authorization' => 'Bearer ' . $api_token,
+					'Content-Type'  => 'application/json',
+				),
+				'body'    => wp_json_encode(
+					array(
+						'number'  => '5511999999999',
+						'message' => 'Teste de conexão',
+					)
+				),
+				'timeout' => 10,
+			)
+		);
+
+		if ( ! is_wp_error( $response ) ) {
+			$status_code = wp_remote_retrieve_response_code( $response );
+			if ( in_array( $status_code, array( 200, 201, 400 ), true ) ) {
+				return true;
+			}
+		}
+
+		return new WP_Error( 'api_connection_failed', __( 'Não foi possível conectar com a API. Verifique a URL e o Token.', 'wc-whatsapp-notifications' ) );
 	}
 }
 

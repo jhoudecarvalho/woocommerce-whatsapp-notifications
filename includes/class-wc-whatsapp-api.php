@@ -152,15 +152,17 @@ class WC_WhatsApp_API {
 	 * @param array|null  $body_format Formato do body (opcional).
 	 * @return bool|WP_Error True se enviado com sucesso, WP_Error em caso de erro.
 	 */
-	public function send_message( $number, $message, $custom_endpoint = null, $body_format = null ) {
+	public function send_message( $number, $message, $custom_endpoint = null, $body_format = null, $skip_rate_limit = false ) {
 		// Validação de tipos para compatibilidade
 		if ( ! is_string( $number ) || ! is_string( $message ) ) {
 			return new WP_Error( 'invalid_params', __( 'Número e mensagem devem ser strings.', 'woocommerce-whatsapp-notifications' ) );
 		}
-		// Verifica rate limiting
-		$rate_check = $this->check_rate_limit();
-		if ( is_wp_error( $rate_check ) ) {
-			return $rate_check;
+		// Verifica rate limiting (pula se for teste)
+		if ( ! $skip_rate_limit ) {
+			$rate_check = $this->check_rate_limit();
+			if ( is_wp_error( $rate_check ) ) {
+				return $rate_check;
+			}
 		}
 		// Validações
 		if ( empty( $this->api_url ) || empty( $this->token ) ) {

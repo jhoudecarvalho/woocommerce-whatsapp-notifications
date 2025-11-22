@@ -98,6 +98,54 @@ if ( ! defined( 'ABSPATH' ) ) {
 						</td>
 					</tr>
 					<tr>
+						<th scope="row"><?php esc_html_e( 'Testar API', 'wc-whatsapp-notifications' ); ?></th>
+						<td>
+							<button type="button" id="test-api-btn" class="button button-secondary">
+								<?php esc_html_e( 'Testar Conexão', 'wc-whatsapp-notifications' ); ?>
+							</button>
+							<div id="test-api-result" class="wc-whatsapp-test-result" style="margin-top: 10px;"></div>
+							<p class="description">
+								<?php esc_html_e( 'Testa a conexão com a API usando as credenciais configuradas acima.', 'wc-whatsapp-notifications' ); ?>
+							</p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Enviar Mensagem de Teste', 'wc-whatsapp-notifications' ); ?></th>
+						<td>
+							<p>
+								<label for="test-phone">
+									<?php esc_html_e( 'Telefone:', 'wc-whatsapp-notifications' ); ?>
+									<input
+										type="tel"
+										id="test-phone"
+										class="regular-text"
+										placeholder="(44) 99999-9999"
+										style="margin-left: 10px;"
+									/>
+								</label>
+							</p>
+							<p>
+								<label for="test-message">
+									<?php esc_html_e( 'Mensagem:', 'wc-whatsapp-notifications' ); ?>
+									<textarea
+										id="test-message"
+										class="large-text"
+										rows="3"
+										placeholder="<?php esc_attr_e( 'Digite sua mensagem de teste aqui...', 'wc-whatsapp-notifications' ); ?>"
+										style="margin-top: 5px;"
+									></textarea>
+								</label>
+							</p>
+							<p>
+								<button type="button" id="send-test-message-btn" class="button button-secondary">
+									<?php esc_html_e( 'Enviar Mensagem de Teste', 'wc-whatsapp-notifications' ); ?>
+								</button>
+							</p>
+							<div id="test-message-result" class="wc-whatsapp-test-result" style="margin-top: 10px;"></div>
+							<p class="description">
+								<?php esc_html_e( 'Envia uma mensagem de teste para o número informado usando as configurações salvas.', 'wc-whatsapp-notifications' ); ?>
+							</p>
+						</td>
 					</tr>
 				</table>
 			</div>
