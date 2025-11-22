@@ -64,6 +64,68 @@ class WC_WhatsApp_API {
 	}
 
 	/**
+	 * Verifica rate limiting antes de enviar mensagem
+	 *
+	 * @return bool|WP_Error True se pode enviar, WP_Error se excedeu limite.
+	 */
+	private function check_rate_limit() {
+		$transient_key = 'wc_whatsapp_rate_limit';
+		$rate_data = get_transient( $transient_key );
+		
+		if ( false === $rate_data ) {
+			// Primeira requisição no período
+			$rate_data = array(
+				'count' => 1,
+				'start_time' => time(),
+			);
+		} else {
+			$rate_data['count']++;
+		}
+		
+		// Limite: 100 requisições por minuto
+		$max_requests = apply_filters( 'wc_whatsapp_rate_limit_max', 100 );
+		$time_window = apply_filters( 'wc_whatsapp_rate_limit_window', 60 ); // 60 segundos
+		
+		// Se passou o período, reseta
+		if ( ( time() - $rate_data['start_time'] ) > $time_window ) {
+			$rate_data = array(
+				'count' => 1,
+				'start_time' => time(),
+			);
+		}
+		
+		// Verifica se excedeu o limite
+		if ( $rate_data['count'] > $max_requests ) {
+			$this->logger->warning(
+				'Rate limit excedido',
+				array(
+					'count' => $rate_data['count'],
+					'max' => $max_requests,
+					'window' => $time_window,
+				)
+			);
+			
+			// Salva dados atualizados
+			set_transient( $transient_key, $rate_data, $time_window );
+			
+			return new WP_Error(
+				'rate_limit_exceeded',
+				sprintf(
+					/* translators: %d: número máximo de requisições, %d: janela de tempo em segundos */
+					esc_html__( 'Limite de requisições excedido. Máximo de %d requisições por %d segundos. Tente novamente em alguns instantes.', 'wc-whatsapp-notifications' ),
+					$max_requests,
+					$time_window
+				)
+			);
+		}
+		
+		// Salva dados atualizados
+		set_transient( $transient_key, $rate_data, $time_window );
+		
+		return true;
+	}
+
+	/**
 	 * Carrega configurações da API
 	 */
 	private function load_settings() {
@@ -79,100 +141,27 @@ class WC_WhatsApp_API {
 	}
 
 	/**
-	 * Testa conexão com a API tentando diferentes endpoints e formatos
-	 *
-	 * @return array Resultado do teste com endpoint encontrado ou erro.
-	 */
-	public function test_api_connection() {
-		$test_number = '5544999999999'; // Número de teste
-		$test_message = 'Teste de conexão - ' . date( 'Y-m-d H:i:s' );
-
-		// Primeiro, tenta usar a URL diretamente (caso seja endpoint completo)
-		$result = $this->send_message( $test_number, $test_message, null, true, array( 'number' => 'number', 'message' => 'body' ) );
-
-		if ( ! is_wp_error( $result ) ) {
-			// Salva o formato que funcionou
-			update_option( 'wc_whatsapp_api_body_format', array( 'number' => 'number', 'message' => 'body' ) );
-			update_option( 'wc_whatsapp_api_endpoint', '' ); // Vazio indica que URL base é o endpoint completo
-			$this->logger->info( 'Conexão bem-sucedida usando URL base como endpoint completo' );
-			return array(
-				'success' => true,
-				'endpoint' => 'URL base (endpoint completo)',
-				'format'   => array( 'number' => 'number', 'message' => 'body' ),
-				'message'  => 'Conexão bem-sucedida!',
-			);
-		}
-
-		// Se não funcionou, tenta diferentes endpoints
-		$endpoints = array(
-			'/send-message',
-			'/messages/send',
-			'/sendText',
-			'/message/send',
-			'/send',
-			'/api/send',
-			'/v1/send',
-			'/whatsapp/send',
-		);
-
-		// Tenta diferentes formatos de body
-		$body_formats = array(
-			array( 'number' => 'number', 'message' => 'body' ),
-			array( 'number' => 'phone', 'message' => 'message' ),
-			array( 'number' => 'phoneNumber', 'message' => 'text' ),
-			array( 'number' => 'to', 'message' => 'message' ),
-			array( 'number' => 'recipient', 'message' => 'body' ),
-		);
-
-		foreach ( $endpoints as $endpoint ) {
-			foreach ( $body_formats as $format ) {
-				$result = $this->send_message( $test_number, $test_message, $endpoint, true, $format );
-
-				if ( ! is_wp_error( $result ) ) {
-					// Salva o formato que funcionou
-					update_option( 'wc_whatsapp_api_body_format', $format );
-					update_option( 'wc_whatsapp_api_endpoint', $endpoint );
-					$this->logger->info(
-						sprintf( 'Endpoint e formato encontrados: %s (number: %s, message: %s)', $endpoint, $format['number'], $format['message'] ),
-						array( 'endpoint' => $endpoint, 'format' => $format )
-					);
-					return array(
-						'success'  => true,
-						'endpoint' => $endpoint,
-						'format'   => $format,
-						'message'  => 'Conexão bem-sucedida!',
-					);
-				}
-
-				// Se não for erro de endpoint não encontrado, pode ser o endpoint correto
-				$error_code = $result->get_error_code();
-				if ( 'http_request_failed' !== $error_code && 'http_404' !== $error_code ) {
-					// Pode ser o endpoint correto, mas com erro de autenticação ou validação
-					$this->logger->debug(
-						sprintf( 'Endpoint possível: %s com formato %s/%s (erro: %s)', $endpoint, $format['number'], $format['message'], $error_code ),
-						array( 'endpoint' => $endpoint, 'format' => $format, 'error' => $result->get_error_message() )
-					);
-				}
-			}
-		}
-
-		return array(
-			'success' => false,
-			'message' => 'Nenhum endpoint válido encontrado. Verifique a URL base e o token. Verifique também os logs para mais detalhes.',
-		);
-	}
-
-	/**
 	 * Envia mensagem via WhatsApp
 	 *
-	 * @param string $number Número do telefone (formato: 5544999999999).
-	 * @param string $message Mensagem a ser enviada.
-	 * @param string $custom_endpoint Endpoint customizado (opcional, para testes).
-	 * @param bool   $is_test Se é um teste (não salva endpoint).
-	 * @param array  $body_format Formato do body (opcional, para testes).
-	 * @return WP_Error|array Resposta da API ou erro.
+	/**
+	 * Envia mensagem via WhatsApp API
+	 *
+	 * @param string      $number Número do telefone (formato: 5544999999999).
+	 * @param string      $message Mensagem a ser enviada.
+	 * @param string|null $custom_endpoint Endpoint customizado (opcional).
+	 * @param array|null  $body_format Formato do body (opcional).
+	 * @return bool|WP_Error True se enviado com sucesso, WP_Error em caso de erro.
 	 */
-	public function send_message( $number, $message, $custom_endpoint = null, $is_test = false, $body_format = null ) {
+	public function send_message( $number, $message, $custom_endpoint = null, $body_format = null ) {
+		// Validação de tipos para compatibilidade
+		if ( ! is_string( $number ) || ! is_string( $message ) ) {
+			return new WP_Error( 'invalid_params', __( 'Número e mensagem devem ser strings.', 'woocommerce-whatsapp-notifications' ) );
+		}
+		// Verifica rate limiting
+		$rate_check = $this->check_rate_limit();
+		if ( is_wp_error( $rate_check ) ) {
+			return $rate_check;
+		}
 		// Validações
 		if ( empty( $this->api_url ) || empty( $this->token ) ) {
 			$error = new WP_Error(
@@ -306,31 +295,12 @@ class WC_WhatsApp_API {
 
 		// Se sucesso (200-299)
 		if ( $response_code >= 200 && $response_code < 300 ) {
-			// Se for teste e endpoint funcionou, salva o endpoint e formato
-			if ( $is_test && $custom_endpoint ) {
-				update_option( 'wc_whatsapp_api_endpoint', $custom_endpoint );
-				$this->logger->info( 'Endpoint salvo: ' . $custom_endpoint );
-			}
-			if ( $is_test && $body_format ) {
-				update_option( 'wc_whatsapp_api_body_format', $body_format );
-				$this->logger->info( 'Formato do body salvo', array( 'format' => $body_format ) );
-			}
-
 			$this->logger->info(
 				'Mensagem enviada com sucesso',
 				array( 'number' => $number, 'code' => $response_code )
 			);
 
-			$decoded_body = json_decode( $response_body, true );
-			if ( json_last_error() !== JSON_ERROR_NONE ) {
-				$decoded_body = $response_body;
-			}
-
-			return array(
-				'success' => true,
-				'code'    => $response_code,
-				'body'    => $decoded_body,
-			);
+			return true;
 		}
 
 		// Tenta extrair mensagem de erro da resposta

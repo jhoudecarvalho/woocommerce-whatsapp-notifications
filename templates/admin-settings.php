@@ -24,7 +24,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 				<a href="#api-settings" class="nav-tab nav-tab-active"><?php esc_html_e( 'Configurações da API', 'wc-whatsapp-notifications' ); ?></a>
 				<a href="#status-settings" class="nav-tab"><?php esc_html_e( 'Status de Pedidos', 'wc-whatsapp-notifications' ); ?></a>
 				<a href="#message-templates" class="nav-tab"><?php esc_html_e( 'Mensagens', 'wc-whatsapp-notifications' ); ?></a>
-				<a href="#test" class="nav-tab"><?php esc_html_e( 'Testes', 'wc-whatsapp-notifications' ); ?></a>
 			</nav>
 
 			<!-- Aba: Configurações da API -->
@@ -99,16 +98,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 						</td>
 					</tr>
 					<tr>
-						<th scope="row"><?php esc_html_e( 'Testar Conexão', 'wc-whatsapp-notifications' ); ?></th>
-						<td>
-							<button type="button" id="test-api-btn" class="button button-secondary">
-								<?php esc_html_e( 'Testar API', 'wc-whatsapp-notifications' ); ?>
-							</button>
-							<span id="test-api-result" class="test-result"></span>
-							<p class="description">
-								<?php esc_html_e( 'Testa a conexão com a API e descobre o endpoint correto automaticamente.', 'wc-whatsapp-notifications' ); ?>
-							</p>
-						</td>
 					</tr>
 				</table>
 			</div>
@@ -209,54 +198,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 				</table>
 			</div>
 
-			<!-- Aba: Testes -->
-			<div id="test" class="tab-content">
-				<h2><?php esc_html_e( 'Enviar Mensagem de Teste', 'wc-whatsapp-notifications' ); ?></h2>
-				<p class="description">
-					<?php esc_html_e( 'Envie uma mensagem de teste para verificar se a integração está funcionando corretamente.', 'wc-whatsapp-notifications' ); ?>
-				</p>
-
-				<table class="form-table">
-					<tr>
-						<th scope="row">
-							<label for="test-phone"><?php esc_html_e( 'Telefone', 'wc-whatsapp-notifications' ); ?></label>
-						</th>
-						<td>
-							<input
-								type="text"
-								id="test-phone"
-								class="regular-text"
-								placeholder="(44) 99999-9999"
-							/>
-							<p class="description">
-								<?php esc_html_e( 'Formato: (DDD) 99999-9999 ou 44999999999', 'wc-whatsapp-notifications' ); ?>
-							</p>
-						</td>
-					</tr>
-					<tr>
-						<th scope="row">
-							<label for="test-message"><?php esc_html_e( 'Mensagem', 'wc-whatsapp-notifications' ); ?></label>
-						</th>
-						<td>
-							<textarea
-								id="test-message"
-								rows="5"
-								class="large-text"
-								placeholder="<?php esc_attr_e( 'Digite sua mensagem de teste aqui...', 'wc-whatsapp-notifications' ); ?>"
-							></textarea>
-						</td>
-					</tr>
-					<tr>
-						<th scope="row"></th>
-						<td>
-							<button type="button" id="send-test-message-btn" class="button button-primary">
-								<?php esc_html_e( 'Enviar Mensagem de Teste', 'wc-whatsapp-notifications' ); ?>
-							</button>
-							<span id="test-message-result" class="test-result"></span>
-						</td>
-					</tr>
-				</table>
-			</div>
 		</div>
 
 		<?php submit_button( __( 'Salvar Configurações', 'wc-whatsapp-notifications' ) ); ?>

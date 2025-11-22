@@ -60,9 +60,6 @@ class WC_WhatsApp_Admin {
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_scripts' ) );
 
-		// AJAX handlers
-		add_action( 'wp_ajax_wc_whatsapp_test_api', array( $this, 'ajax_test_api' ) );
-		add_action( 'wp_ajax_wc_whatsapp_send_test_message', array( $this, 'ajax_send_test_message' ) );
 	}
 
 	/**
@@ -319,68 +316,6 @@ class WC_WhatsApp_Admin {
 		);
 	}
 
-	/**
-	 * Handler AJAX para testar API
-	 */
-	public function ajax_test_api() {
-		check_ajax_referer( 'wc_whatsapp_admin', 'nonce' );
-
-		if ( ! current_user_can( 'manage_woocommerce' ) ) {
-			wp_send_json_error( array( 'message' => __( 'Permissão negada.', 'wc-whatsapp-notifications' ) ) );
-		}
-
-		// Atualiza configurações temporariamente se fornecidas
-		if ( isset( $_POST['api_url'] ) && isset( $_POST['api_token'] ) ) {
-			$temp_url   = $this->sanitize_url( $_POST['api_url'] );
-			$temp_token = $this->sanitize_token( $_POST['api_token'] );
-
-			// Salva temporariamente
-			update_option( 'wc_whatsapp_api_url', $temp_url );
-			update_option( 'wc_whatsapp_api_token', $temp_token );
-			$this->api->reload_settings();
-		}
-
-		$result = $this->api->test_api_connection();
-
-		if ( $result['success'] ) {
-			wp_send_json_success( $result );
-		} else {
-			wp_send_json_error( $result );
-		}
-	}
-
-	/**
-	 * Handler AJAX para enviar mensagem de teste
-	 */
-	public function ajax_send_test_message() {
-		check_ajax_referer( 'wc_whatsapp_admin', 'nonce' );
-
-		if ( ! current_user_can( 'manage_woocommerce' ) ) {
-			wp_send_json_error( array( 'message' => __( 'Permissão negada.', 'wc-whatsapp-notifications' ) ) );
-		}
-
-		$phone   = isset( $_POST['phone'] ) ? sanitize_text_field( $_POST['phone'] ) : '';
-		$message = isset( $_POST['message'] ) ? sanitize_textarea_field( $_POST['message'] ) : '';
-
-		if ( empty( $phone ) || empty( $message ) ) {
-			wp_send_json_error( array( 'message' => __( 'Telefone e mensagem são obrigatórios.', 'wc-whatsapp-notifications' ) ) );
-		}
-
-		// Formata telefone
-		$formatted_phone = $this->format_phone( $phone );
-
-		if ( ! $formatted_phone ) {
-			wp_send_json_error( array( 'message' => __( 'Telefone inválido. Use o formato: (44) 99999-9999', 'wc-whatsapp-notifications' ) ) );
-		}
-
-		$result = $this->api->send_message( $formatted_phone, $message );
-
-		if ( is_wp_error( $result ) ) {
-			wp_send_json_error( array( 'message' => $result->get_error_message() ) );
-		} else {
-			wp_send_json_success( array( 'message' => __( 'Mensagem enviada com sucesso!', 'wc-whatsapp-notifications' ) ) );
-		}
-	}
 
 	/**
 	 * Formata telefone para padrão brasileiro

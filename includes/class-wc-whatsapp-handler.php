@@ -121,32 +121,89 @@ class WC_WhatsApp_Handler {
 			array( 'order_id' => $order_id )
 		);
 		
-		$this->schedule_order_processing( $order_id );
+		// Verifica se o status mudou comparando com o status anterior salvo
+		$current_status = $order->get_status();
+		$last_processed_status = get_post_meta( $order_id, '_wc_whatsapp_last_processed_status', true );
+		
+		// Se o status mudou, processa através do hook de mudança de status
+		// (o hook woocommerce_order_status_changed já deveria ter sido disparado, mas garantimos aqui)
+		if ( $last_processed_status && $last_processed_status !== $current_status ) {
+			$this->logger->info(
+				'Status mudou ao salvar pedido, processando notificação',
+				array(
+					'order_id' => $order_id,
+					'old_status' => $last_processed_status,
+					'new_status' => $current_status,
+				)
+			);
+			
+			// Processa como mudança de status
+			$this->process_notification( $order_id, $last_processed_status, $current_status, $order );
+			
+			// Atualiza status processado
+			update_post_meta( $order_id, '_wc_whatsapp_last_processed_status', $current_status );
+		} else {
+			// Se status não mudou, apenas agenda processamento (para pedidos novos)
+			$this->schedule_order_processing( $order_id );
+			
+			// Salva status atual se não foi salvo antes
+			if ( ! $last_processed_status ) {
+				update_post_meta( $order_id, '_wc_whatsapp_last_processed_status', $current_status );
+			}
+		}
 	}
 
 	/**
 	 * Agenda processamento do pedido (evita processar múltiplas vezes)
 	 *
 	 * @param int $order_id ID do pedido.
+	 * @return void
 	 */
-	private function schedule_order_processing( $order_id ) {
+	private function schedule_order_processing( int $order_id ): void {
 		static $scheduled_orders = array();
 		
-		// Evita processar o mesmo pedido múltiplas vezes
+		// Evita processar o mesmo pedido múltiplas vezes na mesma requisição
 		if ( isset( $scheduled_orders[ $order_id ] ) ) {
 			return;
 		}
 		
 		$scheduled_orders[ $order_id ] = true;
 		
-		// Usa transiente para evitar processar em múltiplos hooks
-		$transient_key = 'wc_whatsapp_processing_' . $order_id;
-		if ( get_transient( $transient_key ) ) {
+		// Verifica se já foi processado este pedido (usando meta permanente)
+		$order = wc_get_order( $order_id );
+		if ( ! $order ) {
 			return;
 		}
 		
-		// Marca como processando por 30 segundos
-		set_transient( $transient_key, true, 30 );
+		$status = $order->get_status();
+		$notification_meta_key = '_wc_whatsapp_notified_' . $status;
+		$already_notified = get_post_meta( $order_id, $notification_meta_key, true );
+		
+		if ( $already_notified ) {
+			$this->logger->debug(
+				'Pedido já foi notificado para este status, ignorando',
+				array( 'order_id' => $order_id, 'status' => $status )
+			);
+			return;
+		}
+		
+		// Usa meta do pedido para rastreamento permanente (mais confiável que transiente)
+		$processing_meta = get_post_meta( $order_id, '_wc_whatsapp_processing', true );
+		if ( $processing_meta && ( time() - (int) $processing_meta ) < 60 ) {
+			// Já está processando há menos de 60 segundos
+			$this->logger->debug(
+				'Pedido já está sendo processado, ignorando',
+				array( 'order_id' => $order_id, 'processing_since' => $processing_meta )
+			);
+			return;
+		}
+		
+		// Marca como processando usando meta do pedido (mais confiável)
+		update_post_meta( $order_id, '_wc_whatsapp_processing', time() );
+		
+		// Também usa transiente como backup para requisições simultâneas
+		$transient_key = 'wc_whatsapp_processing_' . $order_id;
+		set_transient( $transient_key, true, 60 );
 		
 		// Processa após um pequeno delay para garantir que tudo está salvo
 		add_action( 'shutdown', function() use ( $order_id ) {
@@ -175,6 +232,9 @@ class WC_WhatsApp_Handler {
 		
 		// Processa como se fosse uma mudança de status (de 'new' para o status atual)
 		$this->process_notification( $order_id, 'new', $status, $order );
+		
+		// Salva status processado para referência futura
+		update_post_meta( $order_id, '_wc_whatsapp_last_processed_status', $status );
 	}
 
 	/**
@@ -186,6 +246,15 @@ class WC_WhatsApp_Handler {
 	 * @param object $order Objeto do pedido.
 	 */
 	public function handle_order_status_change( $order_id, $old_status, $new_status, $order ) {
+		$this->logger->debug(
+			'Hook woocommerce_order_status_changed disparado',
+			array(
+				'order_id' => $order_id,
+				'old_status' => $old_status,
+				'new_status' => $new_status,
+			)
+		);
+		
 		// Ignora se old_status é rascunho e já processamos via woocommerce_new_order
 		// Isso evita duplicatas quando pedido é criado
 		$draft_statuses = array( 'new', 'auto-draft', 'draft', 'checkout-draft' );
@@ -205,7 +274,11 @@ class WC_WhatsApp_Handler {
 			}
 		}
 		
+		// Processa notificação
 		$this->process_notification( $order_id, $old_status, $new_status, $order );
+		
+		// Salva status processado para referência futura
+		update_post_meta( $order_id, '_wc_whatsapp_last_processed_status', $new_status );
 	}
 
 	/**
@@ -218,20 +291,51 @@ class WC_WhatsApp_Handler {
 	 */
 	private function process_notification( $order_id, $old_status, $new_status, $order ) {
 		// Proteção contra duplicatas: verifica se já processou esta combinação
-		$notification_key = 'wc_whatsapp_notified_' . $order_id . '_' . $new_status;
-		$notified = get_transient( $notification_key );
+		// Usa meta do pedido (permanente) + transiente (temporário) para máxima confiabilidade
+		$notification_meta_key = '_wc_whatsapp_notified_' . $new_status;
+		$notification_meta = get_post_meta( $order_id, $notification_meta_key, true );
 		
-		if ( $notified ) {
+		$notification_key = 'wc_whatsapp_notified_' . $order_id . '_' . $new_status;
+		$notified_transient = get_transient( $notification_key );
+		
+		// Se já foi notificado (meta ou transiente), ignora
+		if ( $notification_meta || $notified_transient ) {
 			$this->logger->debug(
 				'Notificação já enviada para esta combinação de pedido/status, ignorando',
 				array(
 					'order_id'   => $order_id,
 					'old_status' => $old_status,
 					'new_status' => $new_status,
+					'has_meta'   => (bool) $notification_meta,
+					'has_transient' => (bool) $notified_transient,
 				)
 			);
 			return;
 		}
+		
+		// Marca como processando ANTES de enviar (usando lock para evitar processamento simultâneo)
+		$processing_key = '_wc_whatsapp_processing_' . $new_status;
+		$processing_meta = get_post_meta( $order_id, $processing_key, true );
+		
+		// Se já está processando há menos de 30 segundos, aguarda
+		if ( $processing_meta && ( time() - (int) $processing_meta ) < 30 ) {
+			$this->logger->debug(
+				'Notificação já está sendo processada, ignorando duplicata',
+				array(
+					'order_id'   => $order_id,
+					'new_status' => $new_status,
+					'processing_since' => $processing_meta,
+				)
+			);
+			return;
+		}
+		
+		// Marca como processando AGORA (antes de enviar)
+		update_post_meta( $order_id, $processing_key, time() );
+		
+		// Também marca no transiente para requisições simultâneas
+		$processing_transient_key = 'wc_whatsapp_processing_' . $order_id . '_' . $new_status;
+		set_transient( $processing_transient_key, true, 30 );
 		
 		// Verifica se API está configurada
 		if ( ! $this->api->is_configured() ) {
@@ -299,10 +403,19 @@ class WC_WhatsApp_Handler {
 			)
 		);
 
+		// Marca como notificado ANTES de enviar (para evitar duplicatas em processamento simultâneo)
+		// Isso garante que mesmo se dois processos tentarem ao mesmo tempo, apenas um enviará
+		update_post_meta( $order_id, $notification_meta_key, time() );
+		set_transient( $notification_key, true, HOUR_IN_SECONDS );
+		
 		// Envia mensagem (não bloqueia o processo se falhar)
 		$result = $this->api->send_message( $formatted_phone, $message );
 
 		if ( is_wp_error( $result ) ) {
+			// Se falhou, remove a marca de notificado para permitir nova tentativa
+			delete_post_meta( $order_id, $notification_meta_key );
+			delete_transient( $notification_key );
+			
 			$this->logger->error(
 				'Erro ao enviar notificação WhatsApp',
 				array(
@@ -313,12 +426,16 @@ class WC_WhatsApp_Handler {
 				)
 			);
 		} else {
-			// Marca como notificado por 1 hora para evitar duplicatas
-			set_transient( $notification_key, true, HOUR_IN_SECONDS );
+			// Limpa marca de processando (já foi enviado)
+			delete_post_meta( $order_id, $processing_key );
+			delete_transient( $processing_transient_key );
+			
+			// Se result é array (teste), converte para true para logs
+			$log_response = is_array( $result ) ? 'Array (teste)' : $result;
 			
 			$this->logger->info(
 				'Notificação WhatsApp enviada com sucesso',
-				array( 'order_id' => $order_id, 'status' => $new_status, 'response' => $result )
+				array( 'order_id' => $order_id, 'status' => $new_status, 'response' => $log_response )
 			);
 		}
 	}
@@ -880,11 +997,15 @@ class WC_WhatsApp_Handler {
 			// Marca como notificado por 1 hora para evitar duplicatas
 			set_transient( $notification_key, true, HOUR_IN_SECONDS );
 			
+			// Se result é array (teste), converte para string para logs
+			$log_response = is_array( $result ) ? 'Array (teste)' : $result;
+			
 			$this->logger->info(
 				'Notificação de rastreio WhatsApp enviada com sucesso',
 				array(
 					'order_id'      => $order_id,
 					'tracking_code' => $tracking_code,
+					'response'      => $log_response,
 				)
 			);
 		}
@@ -1050,9 +1171,12 @@ class WC_WhatsApp_Handler {
 			// Marca como notificado por 1 hora para evitar duplicatas
 			set_transient( $notification_key, true, HOUR_IN_SECONDS );
 			
+			// Se result é array (teste), converte para string para logs
+			$log_response = is_array( $result ) ? 'Array (teste)' : $result;
+			
 			$this->logger->info(
 				'Notificação de observação WhatsApp enviada com sucesso',
-				array( 'order_id' => $order_id )
+				array( 'order_id' => $order_id, 'response' => $log_response )
 			);
 		}
 	}
