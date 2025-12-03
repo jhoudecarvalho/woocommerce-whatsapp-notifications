@@ -175,6 +175,11 @@ Para suporte, entre em contato através do site: https://cdwtech.com.br ou email
 
 ## Changelog
 
+### 1.1.3
+- **Correção**: Corrige erro "Call to undefined method WP_Post::get_status()" ao salvar pedidos no admin
+- Melhora tratamento de tipos de objetos em hooks do WooCommerce
+- Adiciona validação de tipo WC_Order antes de usar métodos do WooCommerce
+
 ### 1.1.0
 - Adiciona campos de entrega nas mensagens (`{shipping_method}` e `{shipping_total}`)
 - Melhora templates padrão com informações de entrega
