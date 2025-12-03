@@ -113,13 +113,23 @@ class WC_WhatsApp_Handler {
 	 * Processa pedido quando salvo manualmente no admin
 	 *
 	 * @param int $order_id ID do pedido.
-	 * @param object $order Objeto do pedido.
+	 * @param object $post Objeto WP_Post (não WC_Order).
 	 */
-	public function handle_order_saved( $order_id, $order ) {
+	public function handle_order_saved( $order_id, $post ) {
 		$this->logger->debug(
 			'Hook woocommerce_process_shop_order_meta disparado',
 			array( 'order_id' => $order_id )
 		);
+		
+		// Obtém o objeto WC_Order (o parâmetro $post é WP_Post, não WC_Order)
+		$order = wc_get_order( $order_id );
+		if ( ! $order ) {
+			$this->logger->warning(
+				'Pedido não encontrado ao processar save',
+				array( 'order_id' => $order_id )
+			);
+			return;
+		}
 		
 		// Verifica se o status mudou comparando com o status anterior salvo
 		$current_status = $order->get_status();
@@ -783,9 +793,9 @@ class WC_WhatsApp_Handler {
 	 * Verifica código de rastreio após salvar pedido
 	 *
 	 * @param int $order_id ID do pedido.
-	 * @param object $order Objeto do pedido.
+	 * @param object $post Objeto WP_Post (não WC_Order).
 	 */
-	public function check_tracking_after_save( $order_id, $order ) {
+	public function check_tracking_after_save( $order_id, $post ) {
 		// Aguarda um pouco para garantir que as notas foram salvas
 		add_action( 'shutdown', function() use ( $order_id ) {
 			$order = wc_get_order( $order_id );
@@ -799,9 +809,22 @@ class WC_WhatsApp_Handler {
 	 * Processa quando pedido é atualizado
 	 *
 	 * @param int    $order_id ID do pedido.
-	 * @param object $order Objeto do pedido.
+	 * @param object $order Objeto do pedido (pode ser WC_Order ou WP_Post).
 	 */
 	public function handle_order_updated( $order_id, $order ) {
+		// Garante que temos um objeto WC_Order
+		if ( ! is_a( $order, 'WC_Order' ) ) {
+			$order = wc_get_order( $order_id );
+		}
+		
+		if ( ! $order ) {
+			$this->logger->warning(
+				'Pedido não encontrado ao processar update',
+				array( 'order_id' => $order_id )
+			);
+			return;
+		}
+		
 		// Se o plugin wc-any-shipping-notify está ativo, não processa aqui
 		// O hook wcasn_tracking_added já cuida disso
 		if ( function_exists( 'wc_any_shipping_get_tracking_codes' ) ) {
