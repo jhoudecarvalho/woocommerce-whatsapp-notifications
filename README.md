@@ -175,6 +175,14 @@ Para suporte, entre em contato através do site: https://cdwtech.com.br ou email
 
 ## Changelog
 
+### 1.1.4
+- **Refatoração**: Remove integração direta com Correios do plugin
+- Agora depende exclusivamente do plugin `wc-any-shipping-notify` para gerenciar transportadoras
+- Remove detecção automática de códigos dos Correios
+- Remove geração automática de URL dos Correios
+- Remove fallback específico para Correios
+- Melhora compatibilidade e evita conflitos com `wc-any-shipping-notify`
+
 ### 1.1.3
 - **Correção**: Corrige erro "Call to undefined method WP_Post::get_status()" ao salvar pedidos no admin
 - Melhora tratamento de tipos de objetos em hooks do WooCommerce

@@ -880,16 +880,10 @@ class WC_WhatsApp_Handler {
 			return false;
 		}
 		
-		// Padrões comuns de códigos de rastreio
-		// Correios: 2 letras + 9 dígitos + 2 letras (ex: QN756689320BR)
-		// Outros: códigos numéricos ou alfanuméricos de 6-20 caracteres
+		// Padrões genéricos de códigos de rastreio
+		// Nota: Detecção específica de transportadoras (incluindo Correios) é feita pelo plugin wc-any-shipping-notify
+		// Este método apenas extrai códigos genéricos de 6-20 caracteres
 		$patterns = array(
-			// Correios com palavras-chave
-			'/(?:rastreio|tracking|código|code|correios)[\s:]*([A-Z]{2}[\s\-]?\d{9}[\s\-]?[A-Z]{2})/i',
-			// Correios direto (formato padrão)
-			'/([A-Z]{2}[\s\-]?\d{9}[\s\-]?[A-Z]{2})/',
-			// Correios com hífens ou espaços
-			'/([A-Z]{2})[\s\-]?(\d{9})[\s\-]?([A-Z]{2})/',
 			// Genérico com palavras-chave (6-20 caracteres alfanuméricos)
 			'/(?:rastreio|tracking|código|code)[\s:]*([A-Z0-9]{6,20})/i',
 			// Código numérico simples (6-20 dígitos) após palavras-chave
@@ -902,20 +896,6 @@ class WC_WhatsApp_Handler {
 					$code = strtoupper( trim( $matches[1] ) );
 					// Remove espaços e hífens
 					$code = preg_replace( '/[\s\-]/', '', $code );
-					
-					// Valida formato Correios (2 letras + 9 dígitos + 2 letras = 13 caracteres)
-					if ( preg_match( '/^[A-Z]{2}\d{9}[A-Z]{2}$/', $code ) ) {
-						return $code;
-					}
-					
-					// Se tiver 3 matches, monta o código
-					if ( isset( $matches[3] ) && count( $matches ) >= 3 ) {
-						$code = strtoupper( trim( $matches[1] ) . trim( $matches[2] ) . trim( $matches[3] ) );
-						$code = preg_replace( '/[\s\-]/', '', $code );
-						if ( preg_match( '/^[A-Z]{2}\d{9}[A-Z]{2}$/', $code ) ) {
-							return $code;
-						}
-					}
 					
 					// Aceita códigos genéricos de 6-20 caracteres (numéricos ou alfanuméricos)
 					if ( strlen( $code ) >= 6 && strlen( $code ) <= 20 ) {
@@ -1087,15 +1067,13 @@ class WC_WhatsApp_Handler {
 			}
 		}
 		
-		// Se não encontrou URL, tenta detectar pelo código
+		// Se não encontrou URL, tenta detectar pelo código (apenas se wc-any-shipping-notify não estiver ativo)
 		if ( empty( $tracking_url ) ) {
 			$tracking_url = $this->get_tracking_url( $tracking_code, $order );
 		}
 		
-		// Se não encontrou URL, usa padrão dos Correios
-		if ( empty( $tracking_url ) ) {
-			$tracking_url = 'https://www.correios.com.br/precisa-de-ajuda/rastreamento-de-objetos';
-		}
+		// Se não encontrou URL, deixa vazio (wc-any-shipping-notify deve fornecer a URL)
+		// Não usa fallback específico de transportadora para evitar conflitos
 		
 		// Substitui placeholders
 		$message = str_replace(
@@ -1281,11 +1259,9 @@ class WC_WhatsApp_Handler {
 			}
 		}
 		
-		// Se não encontrou, tenta detectar pelo formato do código
-		// Correios: 2 letras + 9 dígitos + 2 letras
-		if ( preg_match( '/^[A-Z]{2}\d{9}[A-Z]{2}$/', $tracking_code ) ) {
-			return 'https://www.correios.com.br/precisa-de-ajuda/rastreamento-de-objetos?objetos=' . $tracking_code;
-		}
+		// Não detecta transportadoras automaticamente
+		// A detecção e URL de rastreio devem ser fornecidas pelo plugin wc-any-shipping-notify
+		// Isso evita conflitos e garante que apenas o plugin especializado gerencie transportadoras
 		
 		return '';
 	}
