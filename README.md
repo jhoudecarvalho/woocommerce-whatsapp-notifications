@@ -13,6 +13,8 @@ Este plugin integra o WooCommerce com uma API de WhatsApp para enviar notificaç
 - ✅ Notificações automáticas de códigos de rastreio (integração com wc-any-shipping-notify)
 - ✅ Notificações automáticas de observações para o cliente
 - ✅ Mensagens personalizáveis para cada status, rastreio e observações
+- ✅ **Envio de imagens junto com notificações** (JPG, PNG, WEBP)
+- ✅ **Compatibilidade HPOS** (High Performance Order Storage) para WooCommerce 10.4+
 - ✅ Formatação automática de telefone para padrão brasileiro (55 + DDD + número)
 - ✅ Descoberta automática de endpoints da API
 - ✅ Suporte para múltiplos tipos de autenticação (Bearer, Token, API Key)
@@ -94,7 +96,26 @@ Seu pedido *#{order_number}* está sendo processado!
 - `_texto_` - Itálico
 - `~texto~` - Riscado
 
-### 4. Testes
+### 4. Configurar Imagens
+
+Na aba "Imagens", você pode configurar imagens para enviar junto com as notificações:
+
+1. Selecione uma imagem para cada tipo de notificação:
+   - Em processamento (processing)
+   - Aguardando pagamento (on-hold)
+   - Concluído (completed)
+   - Cancelado (cancelled)
+   - Reembolsado (refunded)
+   - Código de Rastreio (tracking)
+   - Observação para Cliente (customer_note)
+
+2. As imagens serão convertidas automaticamente para base64 e enviadas junto com a mensagem
+3. Formatos suportados: JPG, PNG, WEBP
+4. Use a WordPress Media Library para fazer upload das imagens
+
+**Nota:** As imagens são opcionais. Se não configurar uma imagem para um status, apenas a mensagem de texto será enviada.
+
+### 5. Testes
 
 Na aba "Testes", você pode:
 - Enviar mensagens de teste para verificar se a integração está funcionando
@@ -116,6 +137,27 @@ Os logs são salvos automaticamente pelo WooCommerce. Para visualizar:
 1. Acesse **WooCommerce > Status > Logs**
 2. Selecione o log `wc-whatsapp-notifications`
 3. Visualize os eventos, erros e informações de debug
+
+## Rate Limiting
+
+O plugin implementa rate limiting para proteger a API contra sobrecarga:
+- **Limite padrão**: 100 requisições por minuto
+- O limite pode ser ajustado usando filtros do WordPress:
+  - `wc_whatsapp_rate_limit_max`: Define o número máximo de requisições (padrão: 100)
+  - `wc_whatsapp_rate_limit_window`: Define a janela de tempo em segundos (padrão: 60)
+
+**Exemplo de uso:**
+```php
+// Aumentar limite para 200 requisições por minuto
+add_filter( 'wc_whatsapp_rate_limit_max', function() {
+    return 200;
+});
+
+// Alterar janela de tempo para 30 segundos
+add_filter( 'wc_whatsapp_rate_limit_window', function() {
+    return 30;
+});
+```
 
 ## Segurança
 
@@ -175,55 +217,68 @@ Para suporte, entre em contato através do site: https://cdwtech.com.br ou email
 
 ## Changelog
 
-### 1.3.0
-- **Nova Funcionalidade**: Adicionado suporte para envio de imagens junto com notificações
-- **Nova Funcionalidade**: Upload de imagens na página de configurações (aba "Imagens")
-- **Nova Funcionalidade**: Imagens convertidas para base64 e enviadas diretamente na mensagem
-- **Nova Funcionalidade**: Configuração de imagem por status/template (processing, on-hold, completed, cancelled, refunded, tracking, customer_note)
-- **Melhoria**: Suporte para formatos JPG, PNG, WEBP
-- **Melhoria**: Integração com WordPress Media Library para upload de imagens
+### 1.3.0 (2026-01-27)
 
-### 1.2.0
-- **Compatibilidade HPOS**: Adicionada declaração de compatibilidade com High Performance Order Storage (HPOS)
-- **Compatibilidade**: Atualizado para WooCommerce 10.4+
-- **Correção**: Substituído método depreciado `get_customer_order_notes()` por `wc_get_order_notes()`
-- **Melhoria**: Compatibilidade com estrutura de notas do WooCommerce 10.0+ (usa `content` em vez de `comment_content`)
-- **Melhoria**: Substituído `get_post_meta()`/`update_post_meta()` por métodos do WC_Order (`get_meta()`/`update_meta_data()`) para compatibilidade total com HPOS
-- **Atualização**: Versão testada atualizada de 8.0 para 10.4
-- **Atualização**: WordPress mínimo atualizado para 5.8
+**Novas Funcionalidades:**
+- ✨ Adicionado suporte para envio de imagens junto com notificações
+- ✨ Upload de imagens na página de configurações (aba "Imagens")
+- ✨ Imagens convertidas para base64 e enviadas diretamente na mensagem
+- ✨ Configuração de imagem por status/template (processing, on-hold, completed, cancelled, refunded, tracking, customer_note)
+- ✨ Integração com WordPress Media Library para upload de imagens
+
+**Melhorias:**
+- 🔧 Suporte para formatos JPG, PNG, WEBP
+- 🔧 Compatibilidade HPOS: Adicionada declaração de compatibilidade com High Performance Order Storage (HPOS)
+- 🔧 Compatibilidade: Atualizado para WooCommerce 10.4+
+- 🔧 Substituído método depreciado `get_customer_order_notes()` por `wc_get_order_notes()`
+- 🔧 Compatibilidade com estrutura de notas do WooCommerce 10.0+ (usa `content` em vez de `comment_content`)
+- 🔧 Substituído `get_post_meta()`/`update_post_meta()` por métodos do WC_Order (`get_meta()`/`update_meta_data()`) para compatibilidade total com HPOS
+
+**Atualizações:**
+- 📦 Versão testada atualizada de 8.0 para 10.4
+- 📦 WordPress mínimo atualizado para 5.8
 
 ### 1.1.4
-- **Refatoração**: Remove integração direta com Correios do plugin
-- Agora depende exclusivamente do plugin `wc-any-shipping-notify` para gerenciar transportadoras
-- Remove detecção automática de códigos dos Correios
-- Remove geração automática de URL dos Correios
-- Remove fallback específico para Correios
-- Melhora compatibilidade e evita conflitos com `wc-any-shipping-notify`
+
+**Refatoração:**
+- 🔄 Remove integração direta com Correios do plugin
+- 🔄 Agora depende exclusivamente do plugin `wc-any-shipping-notify` para gerenciar transportadoras
+- 🔄 Remove detecção automática de códigos dos Correios
+- 🔄 Remove geração automática de URL dos Correios
+- 🔄 Remove fallback específico para Correios
+- ✅ Melhora compatibilidade e evita conflitos com `wc-any-shipping-notify`
 
 ### 1.1.3
-- **Correção**: Corrige erro "Call to undefined method WP_Post::get_status()" ao salvar pedidos no admin
-- Melhora tratamento de tipos de objetos em hooks do WooCommerce
-- Adiciona validação de tipo WC_Order antes de usar métodos do WooCommerce
+
+**Correções:**
+- 🐛 Corrige erro "Call to undefined method WP_Post::get_status()" ao salvar pedidos no admin
+- 🔧 Melhora tratamento de tipos de objetos em hooks do WooCommerce
+- 🔧 Adiciona validação de tipo WC_Order antes de usar métodos do WooCommerce
 
 ### 1.1.0
-- Adiciona campos de entrega nas mensagens (`{shipping_method}` e `{shipping_total}`)
-- Melhora templates padrão com informações de entrega
-- Atualiza documentação com novos placeholders
+
+**Novas Funcionalidades:**
+- ✨ Adiciona campos de entrega nas mensagens (`{shipping_method}` e `{shipping_total}`)
+
+**Melhorias:**
+- 🔧 Melhora templates padrão com informações de entrega
+- 📝 Atualiza documentação com novos placeholders
 
 ### 1.0.0
-- Versão inicial
-- Integração com API WhatsApp
-- Suporte para múltiplos status de pedidos
-- Notificações automáticas de códigos de rastreio
-- Notificações automáticas de observações para cliente
-- Integração com plugin wc-any-shipping-notify
-- Descoberta automática de endpoints da API
-- Suporte para múltiplos tipos de autenticação
-- Painel de configurações completo
-- Sistema de logs integrado
-- Testes de conexão e envio
-- Proteção contra notificações duplicadas
-- Templates personalizáveis para todos os tipos de notificação
+
+**Versão Inicial:**
+- ✨ Integração com API WhatsApp
+- ✨ Suporte para múltiplos status de pedidos
+- ✨ Notificações automáticas de códigos de rastreio
+- ✨ Notificações automáticas de observações para cliente
+- ✨ Integração com plugin wc-any-shipping-notify
+- ✨ Descoberta automática de endpoints da API
+- ✨ Suporte para múltiplos tipos de autenticação
+- ✨ Painel de configurações completo
+- ✨ Sistema de logs integrado
+- ✨ Testes de conexão e envio
+- ✨ Proteção contra notificações duplicadas
+- ✨ Templates personalizáveis para todos os tipos de notificação
 
 ## Licença
 
