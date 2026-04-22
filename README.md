@@ -15,6 +15,8 @@ Este plugin integra o WooCommerce com uma API de WhatsApp para enviar notificaç
 - ✅ Mensagens personalizáveis para cada status, rastreio e observações
 - ✅ **Envio de imagens junto com notificações** (JPG, PNG, WEBP)
 - ✅ **Compatibilidade HPOS** (High Performance Order Storage) para WooCommerce 10.4+
+- ✅ **Aniversário**: cupom automático + WhatsApp (integração com data de nascimento do checkout BR)
+- ✅ **Limpeza segura** de cupons de aniversário expirados (somente meta `_generated_by_birthday_plugin`)
 - ✅ Formatação automática de telefone para padrão brasileiro (55 + DDD + número)
 - ✅ Descoberta automática de endpoints da API
 - ✅ Suporte para múltiplos tipos de autenticação (Bearer, Token, API Key)
@@ -216,6 +218,15 @@ O plugin tenta automaticamente descobrir o endpoint correto. Se falhar:
 Para suporte, entre em contato através do site: https://cdwtech.com.br ou email: comercial@cdwtech.com.br
 
 ## Changelog
+
+### 1.4.0
+
+**Novas Funcionalidades:**
+- ✨ Notificações de aniversário com cupom WooCommerce automático (WhatsApp)
+- ✨ Integração com data de nascimento em user meta (`billing_birthdate`, `_billing_birthdate`, `birthdate`) — compatível com *WooCommerce Extra Checkout Fields for Brazil*
+- ✨ Limpeza automática de cupons expirados não utilizados (apenas cupons com meta `_generated_by_birthday_plugin`)
+- ✨ Página **WooCommerce → WhatsApp · Aniversários** com próximos aniversários e histórico
+- ✨ Envio manual de cupom pela lista de próximos aniversários
 
 ### 1.3.0 (2026-01-27)
 

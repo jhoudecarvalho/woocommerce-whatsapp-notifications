@@ -3,7 +3,7 @@
  * Plugin Name: WooCommerce WhatsApp Notifications
  * Plugin URI: https://cdwtech.com.br
  * Description: Envia notificações automáticas via WhatsApp quando pedidos WooCommerce mudam de status
- * Version: 1.3.0
+ * Version: 1.4.0
  * Author: Jhou de Carvalho
  * Author URI: https://cdwtech.com.br
  * Text Domain: wc-whatsapp-notifications
@@ -22,7 +22,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Define constantes do plugin
-define( 'WC_WHATSAPP_VERSION', '1.3.0' );
+define( 'WC_WHATSAPP_VERSION', '1.4.0' );
 define( 'WC_WHATSAPP_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WC_WHATSAPP_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'WC_WHATSAPP_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
@@ -104,6 +104,8 @@ class WC_WhatsApp_Notifications {
 	private function load_dependencies() {
 		require_once WC_WHATSAPP_PLUGIN_DIR . 'includes/class-wc-whatsapp-api.php';
 		require_once WC_WHATSAPP_PLUGIN_DIR . 'includes/class-wc-whatsapp-logger.php';
+		require_once WC_WHATSAPP_PLUGIN_DIR . 'includes/class-wc-whatsapp-birthday-db.php';
+		require_once WC_WHATSAPP_PLUGIN_DIR . 'includes/class-wc-whatsapp-birthday.php';
 		require_once WC_WHATSAPP_PLUGIN_DIR . 'includes/class-wc-whatsapp-admin.php';
 		require_once WC_WHATSAPP_PLUGIN_DIR . 'includes/class-wc-whatsapp-handler.php';
 	}
@@ -114,6 +116,9 @@ class WC_WhatsApp_Notifications {
 	private function init_components() {
 		// Inicializa handler de pedidos
 		WC_WhatsApp_Handler::get_instance();
+
+		// Aniversários + crons (fora do admin para WP-Cron)
+		WC_WhatsApp_Birthday::get_instance();
 
 		// Inicializa admin se estiver no admin
 		if ( is_admin() ) {
@@ -142,6 +147,19 @@ class WC_WhatsApp_Notifications {
 function wc_whatsapp_notifications_init() {
 	return WC_WhatsApp_Notifications::get_instance();
 }
+
+/**
+ * Ao ativar: cria tabela de cupons de aniversário
+ */
+function wc_whatsapp_plugin_activate() {
+	$db_file = plugin_dir_path( __FILE__ ) . 'includes/class-wc-whatsapp-birthday-db.php';
+	if ( is_readable( $db_file ) ) {
+		require_once $db_file;
+		WC_WhatsApp_Birthday_DB::create_tables();
+	}
+}
+
+register_activation_hook( __FILE__, 'wc_whatsapp_plugin_activate' );
 
 // Inicia o plugin
 wc_whatsapp_notifications_init();

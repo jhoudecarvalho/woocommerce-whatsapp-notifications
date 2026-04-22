@@ -25,6 +25,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 				<a href="#status-settings" class="nav-tab"><?php esc_html_e( 'Status de Pedidos', 'wc-whatsapp-notifications' ); ?></a>
 				<a href="#message-templates" class="nav-tab"><?php esc_html_e( 'Mensagens', 'wc-whatsapp-notifications' ); ?></a>
 				<a href="#image-settings" class="nav-tab"><?php esc_html_e( 'Imagens', 'wc-whatsapp-notifications' ); ?></a>
+				<a href="#birthday-settings" class="nav-tab"><?php esc_html_e( 'Aniversário', 'wc-whatsapp-notifications' ); ?></a>
 			</nav>
 
 			<!-- Aba: Configurações da API -->
@@ -307,6 +308,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 					</table>
 				<?php endforeach; ?>
 			</div>
+
+			<?php require WC_WHATSAPP_PLUGIN_DIR . 'templates/admin-birthday-settings.php'; ?>
 
 		</div>
 

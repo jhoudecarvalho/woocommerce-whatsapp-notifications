@@ -63,6 +63,7 @@ class WC_WhatsApp_Admin {
 		// Handlers AJAX para testes
 		add_action( 'wp_ajax_wc_whatsapp_test_api', array( $this, 'ajax_test_api' ) );
 		add_action( 'wp_ajax_wc_whatsapp_send_test_message', array( $this, 'ajax_send_test_message' ) );
+		add_action( 'wp_ajax_wc_whatsapp_birthday_manual', array( $this, 'ajax_birthday_manual' ) );
 	}
 
 	/**
@@ -78,6 +79,14 @@ class WC_WhatsApp_Admin {
 				'manage_woocommerce',
 				'wc-whatsapp-notifications',
 				array( $this, 'render_settings_page' )
+			);
+			add_submenu_page(
+				'woocommerce',
+				__( 'Aniversários e cupons WhatsApp', 'wc-whatsapp-notifications' ),
+				__( 'WhatsApp · Aniversários', 'wc-whatsapp-notifications' ),
+				'manage_woocommerce',
+				'wc-whatsapp-birthday-reports',
+				array( $this, 'render_birthday_reports_page' )
 			);
 		} else {
 			// Fallback: adiciona como menu separado se WooCommerce não estiver ativo
@@ -214,7 +223,11 @@ class WC_WhatsApp_Admin {
 	 * @param string $hook Hook da página atual.
 	 */
 	public function enqueue_admin_scripts( $hook ) {
-		if ( 'woocommerce_page_wc-whatsapp-notifications' !== $hook ) {
+		$allowed = array(
+			'woocommerce_page_wc-whatsapp-notifications',
+			'woocommerce_page_wc-whatsapp-birthday-reports',
+		);
+		if ( ! in_array( $hook, $allowed, true ) ) {
 			return;
 		}
 
@@ -242,6 +255,7 @@ class WC_WhatsApp_Admin {
 			array(
 				'ajaxUrl' => admin_url( 'admin-ajax.php' ),
 				'nonce'   => wp_create_nonce( 'wc_whatsapp_admin' ),
+				'birthdayNonce' => wp_create_nonce( 'wc_whatsapp_birthday_admin' ),
 				'strings' => array(
 					'testing'        => __( 'Testando...', 'wc-whatsapp-notifications' ),
 					'success'        => __( 'Sucesso!', 'wc-whatsapp-notifications' ),
@@ -342,6 +356,45 @@ class WC_WhatsApp_Admin {
 				update_option( $option_key, $this->sanitize_image_id( $_POST[ $option_key ] ) );
 			}
 		}
+
+		// Aniversário
+		update_option( 'wc_whatsapp_birthday_enabled', isset( $_POST['wc_whatsapp_birthday_enabled'] ) && '1' === $_POST['wc_whatsapp_birthday_enabled'] );
+		if ( isset( $_POST['wc_whatsapp_birthday_discount_type'] ) ) {
+			$t = sanitize_text_field( wp_unslash( $_POST['wc_whatsapp_birthday_discount_type'] ) );
+			update_option( 'wc_whatsapp_birthday_discount_type', in_array( $t, array( 'percent', 'fixed', 'free_shipping' ), true ) ? $t : 'percent' );
+		}
+		if ( isset( $_POST['wc_whatsapp_birthday_discount_amount'] ) ) {
+			update_option( 'wc_whatsapp_birthday_discount_amount', wc_format_decimal( wp_unslash( $_POST['wc_whatsapp_birthday_discount_amount'] ) ) );
+		}
+		if ( isset( $_POST['wc_whatsapp_birthday_coupon_prefix'] ) ) {
+			update_option( 'wc_whatsapp_birthday_coupon_prefix', sanitize_text_field( wp_unslash( $_POST['wc_whatsapp_birthday_coupon_prefix'] ) ) );
+		}
+		if ( isset( $_POST['wc_whatsapp_birthday_valid_days'] ) ) {
+			update_option( 'wc_whatsapp_birthday_valid_days', max( 1, absint( $_POST['wc_whatsapp_birthday_valid_days'] ) ) );
+		}
+		if ( isset( $_POST['wc_whatsapp_birthday_cleanup_days'] ) ) {
+			update_option( 'wc_whatsapp_birthday_cleanup_days', max( 1, absint( $_POST['wc_whatsapp_birthday_cleanup_days'] ) ) );
+		}
+		if ( isset( $_POST['wc_whatsapp_birthday_min_amount'] ) ) {
+			update_option( 'wc_whatsapp_birthday_min_amount', wc_format_decimal( wp_unslash( $_POST['wc_whatsapp_birthday_min_amount'] ) ) );
+		}
+		update_option( 'wc_whatsapp_birthday_single_use', isset( $_POST['wc_whatsapp_birthday_single_use'] ) && '1' === $_POST['wc_whatsapp_birthday_single_use'] );
+		update_option( 'wc_whatsapp_birthday_individual_use', isset( $_POST['wc_whatsapp_birthday_individual_use'] ) && '1' === $_POST['wc_whatsapp_birthday_individual_use'] );
+		if ( isset( $_POST['wc_whatsapp_birthday_send_offset'] ) ) {
+			$o = absint( $_POST['wc_whatsapp_birthday_send_offset'] );
+			update_option( 'wc_whatsapp_birthday_send_offset', in_array( $o, array( 0, 1, 2, 7 ), true ) ? $o : 0 );
+		}
+		if ( isset( $_POST['wc_whatsapp_birthday_send_time'] ) ) {
+			$time = sanitize_text_field( wp_unslash( $_POST['wc_whatsapp_birthday_send_time'] ) );
+			if ( preg_match( '/^\d{2}:\d{2}$/', $time ) ) {
+				update_option( 'wc_whatsapp_birthday_send_time', $time );
+			}
+		}
+		if ( isset( $_POST['wc_whatsapp_birthday_message_template'] ) ) {
+			update_option( 'wc_whatsapp_birthday_message_template', $this->sanitize_message( wp_unslash( $_POST['wc_whatsapp_birthday_message_template'] ) ) );
+		}
+
+		WC_WhatsApp_Birthday::reschedule_crons();
 
 		// Mensagem de sucesso
 		add_settings_error(
@@ -515,6 +568,147 @@ class WC_WhatsApp_Admin {
 		}
 
 		return new WP_Error( 'api_connection_failed', __( 'Não foi possível conectar com a API. Verifique a URL e o Token.', 'wc-whatsapp-notifications' ) );
+	}
+
+	/**
+	 * Página de relatórios de aniversário
+	 */
+	public function render_birthday_reports_page() {
+		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+			wp_die( esc_html__( 'Sem permissão.', 'wc-whatsapp-notifications' ) );
+		}
+
+		WC_WhatsApp_Birthday_DB::ensure_installed();
+
+		global $wpdb;
+		$table   = WC_WhatsApp_Birthday_DB::get_table_name();
+		$history = $wpdb->get_results( "SELECT * FROM {$table} ORDER BY id DESC LIMIT 200", ARRAY_A );
+		$history = $history ? $history : array();
+
+		$upcoming = $this->get_upcoming_birthdays( 30 );
+
+		$month_start = gmdate( 'Y-m-01' );
+		$sent_month  = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$table} WHERE sent_date >= %s AND whatsapp_status = %s",
+				$month_start,
+				'enviado'
+			)
+		);
+		$used_total = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table} WHERE status = 'usado'" );
+		$all_sent   = max( 1, (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table} WHERE whatsapp_status = 'enviado'" ) );
+		$use_rate   = round( 100 * $used_total / $all_sent, 1 );
+
+		include WC_WHATSAPP_PLUGIN_DIR . 'templates/admin-birthday-reports.php';
+	}
+
+	/**
+	 * Próximos aniversários (usuários com meta de data)
+	 *
+	 * @param int $days Days ahead.
+	 * @return array<int, array<string, mixed>>
+	 */
+	private function get_upcoming_birthdays( $days ) {
+		global $wpdb;
+		$keys = array( 'billing_birthdate', '_billing_birthdate', 'birthdate' );
+		$in   = "'" . implode( "','", array_map( 'esc_sql', $keys ) ) . "'";
+		$uids = $wpdb->get_col(
+			"SELECT DISTINCT user_id FROM {$wpdb->usermeta} WHERE meta_key IN ({$in}) AND meta_value != '' LIMIT 300"
+		);
+		if ( ! $uids ) {
+			return array();
+		}
+
+		$tz    = wp_timezone();
+		$today = new DateTimeImmutable( 'today', $tz );
+		$end   = $today->modify( '+' . (int) $days . ' days' );
+		$out   = array();
+
+		foreach ( $uids as $uid ) {
+			$raw = '';
+			foreach ( $keys as $key ) {
+				$v = get_user_meta( (int) $uid, $key, true );
+				if ( ! empty( $v ) ) {
+					$raw = $v;
+					break;
+				}
+			}
+			if ( '' === $raw ) {
+				continue;
+			}
+			$bd = WC_WhatsApp_Birthday::get_instance()->parse_birthdate_public( $raw );
+			if ( ! $bd ) {
+				continue;
+			}
+
+			$y      = (int) $today->format( 'Y' );
+			$b_this = $this->safe_bday_year( (int) $bd['month'], (int) $bd['day'], $y, $tz );
+			if ( $b_this < $today ) {
+				$b_this = $this->safe_bday_year( (int) $bd['month'], (int) $bd['day'], $y + 1, $tz );
+			}
+			if ( $b_this > $end ) {
+				continue;
+			}
+
+			$user = get_userdata( (int) $uid );
+			if ( ! $user ) {
+				continue;
+			}
+
+			$out[] = array(
+				'user_id'   => (int) $uid,
+				'name'      => $user->display_name,
+				'phone'     => get_user_meta( (int) $uid, 'billing_phone', true ),
+				'birthday'  => $b_this->format( 'd/m' ),
+				'birthfull' => $b_this->format( 'Y-m-d' ),
+			);
+		}
+
+		usort(
+			$out,
+			function ( $a, $b ) {
+				return strcmp( $a['birthfull'], $b['birthfull'] );
+			}
+		);
+
+		return $out;
+	}
+
+	/**
+	 * @param int            $month Month.
+	 * @param int            $day Day.
+	 * @param int            $year Year.
+	 * @param DateTimeZone   $tz TZ.
+	 * @return DateTimeImmutable
+	 */
+	private function safe_bday_year( $month, $day, $year, $tz ) {
+		if ( 2 === $month && 29 === $day && ! ( ( ( $year % 4 === 0 ) && ( $year % 100 !== 0 ) ) || ( $year % 400 === 0 ) ) ) {
+			$day = 28;
+		}
+		return new DateTimeImmutable( sprintf( '%04d-%02d-%02d', $year, $month, $day ), $tz );
+	}
+
+	/**
+	 * AJAX envio manual de cupom de aniversário
+	 */
+	public function ajax_birthday_manual() {
+		check_ajax_referer( 'wc_whatsapp_birthday_admin', 'nonce' );
+
+		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+			wp_send_json_error( array( 'message' => __( 'Sem permissão.', 'wc-whatsapp-notifications' ) ) );
+		}
+
+		$user_id = isset( $_POST['user_id'] ) ? absint( $_POST['user_id'] ) : 0;
+		if ( ! $user_id ) {
+			wp_send_json_error( array( 'message' => __( 'Usuário inválido.', 'wc-whatsapp-notifications' ) ) );
+		}
+
+		$result = WC_WhatsApp_Birthday::get_instance()->send_manual_for_user( $user_id );
+		if ( is_wp_error( $result ) ) {
+			wp_send_json_error( array( 'message' => $result->get_error_message() ) );
+		}
+
+		wp_send_json_success( array( 'message' => __( 'Cupom gerado e mensagem enviada.', 'wc-whatsapp-notifications' ) ) );
 	}
 }
 
